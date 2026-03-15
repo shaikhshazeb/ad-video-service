@@ -1,13 +1,14 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 import edge_tts
 import subprocess
 import os
 import uuid
 import httpx
 import traceback
-from typing import Optional
+import json
+from typing import Optional, Union
 
 app = FastAPI()
 
@@ -18,8 +19,16 @@ class SceneRequest(BaseModel):
     voice: str = "en-US-JennyNeural"
 
 class AdRequest(BaseModel):
-    scenes: list[SceneRequest]
+    scenes: Union[list[SceneRequest], str]
     voice: str = "en-US-JennyNeural"
+
+    @field_validator('scenes', mode='before')
+    @classmethod
+    def parse_scenes(cls, v):
+        if isinstance(v, str):
+            parsed = json.loads(v)
+            return parsed
+        return v
 
 @app.get("/")
 def root():
