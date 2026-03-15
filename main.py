@@ -9,6 +9,7 @@ import httpx
 import traceback
 import json
 from typing import Optional, Union
+from urllib.parse import quote
 
 app = FastAPI()
 
@@ -48,7 +49,7 @@ async def generate_scene(req: SceneRequest):
         image_url = req.image_url
         if not image_url:
             prompt = f"cinematic advertisement {req.text[:100]}"
-            image_url = f"https://image.pollinations.ai/prompt/{httpx.utils.quote(prompt)}?model=flux&width=1280&height=720&nologo=true"
+            image_url = f"https://image.pollinations.ai/prompt/{quote(prompt)}?model=flux&width=1280&height=720&nologo=true"
 
         print(f"Downloading image from: {image_url}")
         async with httpx.AsyncClient(timeout=60) as client:
@@ -104,7 +105,7 @@ async def generate_ad_video(req: AdRequest):
             image_url = scene.image_url
             if not image_url:
                 prompt = f"cinematic advertisement {scene.text[:100]}"
-                image_url = f"https://image.pollinations.ai/prompt/{httpx.utils.quote(prompt)}?model=flux&width=1280&height=720&nologo=true"
+                image_url = f"https://image.pollinations.ai/prompt/{quote(prompt)}?model=flux&width=1280&height=720&nologo=true"
 
             async with httpx.AsyncClient(timeout=60) as client:
                 img_response = await client.get(image_url, follow_redirects=True)
