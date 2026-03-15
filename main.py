@@ -50,7 +50,7 @@ async def generate_ad_video(req: AdRequest):
             image_url = scene.image_url
             if not image_url:
                 prompt = quote(f"cinematic advertisement {scene.text[:80]}")
-                image_url = f"https://image.pollinations.ai/prompt/{prompt}?model=flux&width=1280&height=720&nologo=true"
+                image_url = f"https://image.pollinations.ai/prompt/{prompt}?model=flux&width=640&height=360&nologo=true"
 
             async with httpx.AsyncClient(timeout=60) as client:
                 img_response = await client.get(image_url, follow_redirects=True)
@@ -68,7 +68,7 @@ async def generate_ad_video(req: AdRequest):
             duration_result = subprocess.run(duration_cmd, capture_output=True, text=True)
             duration = float(duration_result.stdout.strip()) if duration_result.stdout.strip() else 3.0
 
-            # Simple video — no heavy effects
+            # Low res, ultrafast
             ffmpeg_cmd = [
                 "ffmpeg", "-y",
                 "-loop", "1",
@@ -77,16 +77,17 @@ async def generate_ad_video(req: AdRequest):
                 "-c:v", "libx264",
                 "-tune", "stillimage",
                 "-c:a", "aac",
-                "-b:a", "128k",
+                "-b:a", "96k",
                 "-pix_fmt", "yuv420p",
-                "-vf", "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2",
+                "-vf", "scale=640:360:force_original_aspect_ratio=decrease,pad=640:360:(ow-iw)/2:(oh-ih)/2",
                 "-preset", "ultrafast",
+                "-crf", "35",
                 "-shortest",
                 "-t", str(duration + 0.5),
                 video_path
             ]
 
-            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, timeout=60)
+            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, timeout=120)
             if result.returncode != 0:
                 raise HTTPException(status_code=500, detail=f"FFmpeg scene {i} error: {result.stderr[-300:]}")
 
