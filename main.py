@@ -7,7 +7,7 @@ import subprocess
 import os
 import uuid
 import httpx
-import tempfile
+import traceback
 
 app = FastAPI()
 
@@ -32,18 +32,24 @@ async def generate_ad_video(req: AdRequest):
 
     try:
         # Step 1: Download image
+        print(f"Downloading image from: {req.image_url}")
         async with httpx.AsyncClient(timeout=30) as client:
-            img_response = await client.get(req.image_url)
+            img_response = await client.get(req.image_url, follow_redirects=True)
+            print(f"Image response status: {img_response.status_code}")
             if img_response.status_code != 200:
-                raise HTTPException(status_code=400, detail="Image download failed")
+                raise HTTPException(status_code=400, detail=f"Image download failed: {img_response.status_code}")
             with open(image_path, "wb") as f:
                 f.write(img_response.content)
+        print(f"Image saved to: {image_path}")
 
         # Step 2: Generate voice using Edge TTS
+        print(f"Generating voice for script: {req.script[:50]}...")
         tts = edge_tts.Communicate(req.script, req.voice)
         await tts.save(audio_path)
+        print(f"Audio saved to: {audio_path}")
 
         # Step 3: Generate video using FFmpeg
+        print("Generating video with FFmpeg...")
         ffmpeg_cmd = [
             "ffmpeg", "-y",
             "-loop", "1",
@@ -60,14 +66,21 @@ async def generate_ad_video(req: AdRequest):
         ]
 
         result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise HTTPException(status_code=500, detail=f"FFmpeg error: {result.stderr}")
+        print(f"FFmpeg stderr: {result.stderr[-500:] if result.stderr else 'none'}")
 
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"FFmpeg error: {result.stderr[-500:]}")
+
+        print("Video generated successfully!")
         return FileResponse(
             video_path,
             media_type="video/mp4",
             filename="ad_video.mp4"
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
+        error_detail = traceback.format_exc()
+        print(f"Error: {error_detail}")
         raise HTTPException(status_code=500, detail=str(e))
